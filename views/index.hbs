@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Location-based AR.js demo</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script>
+        async function fetchAQIData(latitude, longitude) {
+    try {
+        const response = await fetch('/get-air-quality', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ latitude, longitude }),
+        });
+        
+        const data = await response.json();
+        console.log('Received AQI data:', data);
+        
+        // Extract the AQI value and health recommendations
+        const aqiValue =  data.universalAqi.aqi ;
+        console.log(aqiValue);
+     
+        const summary = data.summary;
+
+        console.log('AQI Value:', aqiValue);
+        console.log('Health Recommendations:', summary.candidates[0].content.parts[0].text);
+      
+        
+        updateAQI(aqiValue);
+        updateHealthRecommendations(summary.candidates[0].content.parts[0].text);
+    } catch (error) {
+        console.error('Error fetching AQI data:', error);
+        updateAQI(null);
+        updateHealthRecommendations(null);
+    }
+}
+
+
+function updateAQI(aqiValue) {
+    // Set the AQI value in the AR scene
+    const aqiTextEntity = document.getElementById('aqi-text');
+    if (aqiTextEntity) {
+        aqiTextEntity.setAttribute('text', `value: AQI: ${aqiValue}`);
+        
+    }
+}
+
+function updateHealthRecommendations(healthRecommendationsText) {
+    // Set the health recommendations text in the AR scene
+    const healthTextEntity = document.getElementById('health-text');
+    if (healthTextEntity) {
+        healthTextEntity.setAttribute('text', `value: Health Recommendations: ${healthRecommendationsText}; color: black; align: left; width: 3.0; wrapCount: 50;`);
+       
+    }
+}
+
+
+ 
+
+        function setCoordinates(latitude, longitude) {
+            const gpsEntity = document.getElementById('gps-entity');
+            gpsEntity.setAttribute('gps-entity-place', `latitude: ${latitude}; longitude: ${longitude};`);
+            gpsEntity.setAttribute('visible', 'true');
+            fetchAQIData(latitude, longitude);
+        }
+
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                const { latitude, longitude } = position.coords;
+                setCoordinates(latitude, longitude);
+            }, (err) => {
+                console.error('Error obtaining location', err);
+                setCoordinates(0, 0);
+            }, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        } else {
+            console.error('Geolocation is not available');
+            setCoordinates(0, 0);
+        }
+    </script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+<a-scene
+    vr-mode-ui="enabled: false"
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: true; trackingMethod: best; sourceWidth: 1280; sourceHeight: 720;"
+>
+    <a-entity id="gps-entity" gps-entity-place="latitude: 0; longitude: 0;" visible="false">
+        <!-- AQI Box -->
+        <a-box
+            color="#050C9C"
+            opacity="0.2"
+            depth="0.05"
+            height="0.5"
+            width="1.5"
+            position="-1.5 0 -3"
+            rotation="0 0 0"
+        >
+            <a-entity
+                position="0.4 0.1 0"
+                text="value: Air Quality Index; color: #FFA62F; align: left; width: 1.5; wrapCount: 20;"
+            ></a-entity>
+
+            <a-entity
+                position="0.4 -0.1 0"
+                id="aqi-text"
+                text="value: AQI: 0; color: black; align: left; width: 1.5; wrapCount: 20;"
+            ></a-entity>
+        </a-box>
+
+        <!-- Health Recommendation Box -->
+        <a-box
+            color="#32CD32"
+            opacity="0.2"
+            depth="0.05"
+            height="1.5"
+            width="4.0"
+            position="1.5 0 -3"
+            rotation="0 0 0"
+        >
+            <a-entity
+                position="1 0.1 0"
+                text="value: Health Recommendations; color: white; align: left; width: 3.0; wrapCount: 20;"
+            ></a-entity>
+
+            <a-entity
+                position="0.4 -0.1 0"
+                id="health-text"
+                text="value: None; color: black; align: left; width: 3.0; wrapCount: 50;"
+            ></a-entity>
+        </a-box>
+    </a-entity>
+
+    <a-camera gps-camera rotation-reader></a-camera>
+</a-scene>
+</body>
+</html>
