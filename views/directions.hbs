@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Customizable Canvas Gauge Example</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/flatly/bootstrap.min.css">
+    <style>
+        body { background: #efefef; }
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #gauge-container {
+            position: relative;
+            width: 300px; /* Adjusted width for gauge container */
+            height: 300px;
+            margin-bottom: 20px; /* Added space between gauge and preview text field */
+            text-align: center; /* Center align text in gauge container */
+        }
+        #gauge-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: white;
+            z-index: 0;
+        }
+        #demo {
+            position: absolute;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+        }
+        #preview-textfield {
+            width: 300px;
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: black;
+            font-family: 'Amaranth', sans-serif;
+            margin-top: 20px;
+        }
+        h1 {
+            font-family: 'Amaranth', sans-serif; /* Apply Amaranth font to the title */
+            font-size: 2em; /* Adjusted font size for title */
+            margin-bottom: 10px; /* Space below the title */
+        }
+
+        .guagee-container{
+
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="guagee-container">
+    <h1>Customizable Canvas Gauge Example</h1>
+    <div id="gauge-container">
+        <canvas id="demo"></canvas>
+        <div id="preview-textfield"></div>
+    </div>
+</div>
+
+<script src="/gauge.min.js"></script>
+<script>
+    var opts = {
+        angle: -0.25,
+        lineWidth: 0.2,
+        radiusScale: 0.9,
+        pointer: {
+            length: 0.6,
+            strokeWidth: 0.05,
+            color: '#000000'
+        },
+        staticLabels: {
+            font: "15px sans-serif",
+            labels: [0, 50, 100, 200, 300, 400, 500],
+            color: "#000000",
+            fractionDigits: 0
+        },
+        staticZones: [
+            { strokeStyle: "#00B050", min: 0, max: 50 },      // Good air quality
+            { strokeStyle: "#92D050", min: 51, max: 100 },    // Satisfactory air quality
+            { strokeStyle: "#FFFF00", min: 101, max: 200 },   // Moderate air quality
+            { strokeStyle: "#FF6500", min: 201, max: 300 },   // Poor air quality
+            { strokeStyle: "#FF0000", min: 301, max: 400 },   // Very poor air quality
+            { strokeStyle: "#C00000", min: 401, max: 500 }    // Severe air quality
+        ],
+        limitMax: false,
+        limitMin: false,
+        highDpiSupport: true
+    };
+    var target = document.getElementById('demo'); // your canvas element
+    var gauge = new Gauge(target).setOptions(opts); // create gauge
+    document.getElementById("preview-textfield").className = "preview-textfield";
+    gauge.setTextField(document.getElementById("preview-textfield"));
+    gauge.maxValue = 500; // set max gauge value
+    gauge.setMinValue(0);  // set min value
+    gauge.set(125); // set actual value
+</script>
+
+</body>
+</html>

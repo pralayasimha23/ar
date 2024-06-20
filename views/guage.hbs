@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Customizable Canvas Gauge in AR</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.3.1/flatly/bootstrap.min.css">
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.3.2/aframe/build/aframe-ar.js"></script>
+    <script src="https://bernii.github.io/gauge.js/dist/gauge.min.js"></script>
+    <style>
+        body { background: #efefef; margin: 0; overflow: hidden; }
+        .container {
+            display: none;
+        }
+        #gauge-container {
+            width: 300px;
+            height: 300px;
+            text-align: center;
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            z-index: 1;
+        }
+        #demo {
+            width: 100%;
+            height: 100%;
+        }
+        #preview-textfield {
+            width: 300px;
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: black;
+            font-family: 'Amaranth', sans-serif;
+            margin-top: 20px;
+        }
+        h1 {
+            font-family: 'Amaranth', sans-serif;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Customizable Canvas Gauge in AR</h1>
+    <div id="gauge-container">
+        <canvas id="demo" width="300" height="300"></canvas>
+        <div id="preview-textfield"></div>
+    </div>
+</div>
+
+<a-scene embedded arjs="sourceType: webcam; trackingMethod: best;">
+    <a-assets></a-assets>
+    <a-camera gps-camera rotation-reader></a-camera>
+    <!-- Entity containing the gauge texture -->
+    <a-entity id="gauge-entity" position="0 1.6 -4" rotation="0 0 0"></a-entity>
+</a-scene>
+
+<script>
+    // Initialize the gauge meter
+    function initGauge() {
+        var opts = {
+            angle: -0.25,
+            lineWidth: 0.2,
+            radiusScale: 0.9,
+            pointer: {
+                length: 0.6,
+                strokeWidth: 0.05,
+                color: '#000000'
+            },
+            staticLabels: {
+                font: "12px sans-serif",
+                labels: [0, 50, 100, 200, 300, 400, 500],
+                color: "#000000",
+                fractionDigits: 0
+            },
+            staticZones: [
+                { strokeStyle: "#00B050", min: 0, max: 50 },
+                { strokeStyle: "#92D050", min: 51, max: 100 },
+                { strokeStyle: "#FFFF00", min: 101, max: 200 },
+                { strokeStyle: "#FF6500", min: 201, max: 300 },
+                { strokeStyle: "#FF0000", min: 301, max: 400 },
+                { strokeStyle: "#C00000", min: 401, max: 500 }
+            ],
+            limitMax: false,
+            limitMin: false,
+            highDpiSupport: true
+        };
+
+        var gauge = new Gauge(document.getElementById('demo')).setOptions(opts);
+        gauge.setTextField(document.getElementById("preview-textfield"));
+        gauge.maxValue = 500;
+        gauge.setMinValue(0);
+        gauge.set(125);
+    }
+
+    // Run the gauge initialization after the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        initGauge();
+
+        setTimeout(() => {
+            const canvas = document.getElementById('demo');
+            const gaugeEntity = document.querySelector('#gauge-entity');
+
+            // Create a texture from the canvas
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            gaugeEntity.setAttribute('geometry', { primitive: 'plane', width: 3, height: 3 });
+            gaugeEntity.setAttribute('material', { src: texture });
+        }, 1000); // Adjust timeout as needed for rendering completion
+    });
+</script>
+
+</body>
+</html>

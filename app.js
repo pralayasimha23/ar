@@ -5,10 +5,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
+
 // Load environment variables from .env file
 dotenv.config();
 
-// Access your API key as an environment variable
+// Access your API keys as environment variables
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
 // Get the current file path and directory
@@ -66,19 +67,22 @@ app.post('/get-air-quality', async (req, res) => {
 
         // Extract air quality and health recommendations data
         const data = response.data;
+
+        // Find the local AQI (excluding universal AQI 'uaqi')
         const universalAqi = data.indexes.find(index => index.code === 'uaqi');
+        const localAqi = data.indexes.find(index => index.code !== 'uaqi');
         const healthRecommendations = data.healthRecommendations;
 
         // Generate summary using Google Gemini AI including health recommendations
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const prompt = `Write a 5 lines summary on health recommendations: ${JSON.stringify(healthRecommendations)}`;
 
         const result = await model.generateContent(prompt);
         const summary = await result.response;
 
-        // Send response to client with the summary
+        // Send response to client with the local AQI and summary
         res.json({
-            universalAqi,
+            localAqi,
             summary
         });
     } catch (error) {
@@ -86,7 +90,6 @@ app.post('/get-air-quality', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 
 // Start the server
 app.listen(PORT, () => {
