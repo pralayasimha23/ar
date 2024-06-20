@@ -1,100 +1,76 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Options for the gauge chart
-    var opts = {
-        angle: 0,
-        lineWidth: 0.3,
-        radiusScale: 0.9,
-        pointer: {
-            length: 0.42,
-            strokeWidth: 0.029,
-            color: '#000000'
-        },
-        limitMax: true,
-        limitMin: true,
-        colorStart: '#6F6EA0',
-        colorStop: '#C0C0DB',
-        strokeColor: '#EEEEEE',
-        generateGradient: true,
-        highDpiSupport: true,
-        staticZones: [
-            { strokeStyle: "#30B32D", min: 10, max: 30 }, // Green from 10 to 30
-            { strokeStyle: "#FFDD00", min: 30, max: 60 }, // Yellow 30 to 60
-            { strokeStyle: "#F03E3E", min: 60, max: 100 } // Red 60 to 100
-        ],
-        staticLabels: {
-            font: "10px sans-serif",
-            labels: [10, 30, 60, 100],
-            color: "#000000",
-            fractionDigits: 0
-        },
-    };
+/**
+ * @license
+ * Copyright 2019 Google LLC. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+let panorama;
 
-    // Get canvas element
-    var target = document.getElementById('gauge-chart');
+function initMap() {
+  const astorPlace = { lat: 40.729884, lng: -73.990988 };
+  // Set up the map
+  const map = new google.maps.Map(document.getElementById("map"), {
+    center: astorPlace,
+    zoom: 18,
+    streetViewControl: false,
+  });
 
-    // Create gauge chart
-    var gauge = new Gauge(target).setOptions(opts);
+  document.getElementById("toggle").addEventListener("click", toggleStreetView);
 
-    // Set gauge meter properties
-    gauge.maxValue = 100;
-    gauge.setMinValue(10);
-    gauge.animationSpeed = 10;
+  const cafeIcon = document.createElement("img");
 
-    // Function to update gauge meter and health recommendations
-    function updateGaugeMeter(value, recommendations) {
-        gauge.set(value); // Update gauge meter
+  cafeIcon.src =
+    "https://developers.google.com/maps/documentation/javascript/examples/full/images/cafe_icon.svg";
 
-        // Update health recommendations
-        var recommendationsHTML = '';
-        for (var populationGroup in recommendations) {
-            recommendationsHTML += `<strong>${populationGroup}:</strong> ${recommendations[populationGroup]}<br>`;
-        }
-        healthRecommendationsElement.innerHTML = `<strong>Health Recommendations:</strong><br>${recommendationsHTML}`;
-    }
+  const dollarIcon = document.createElement("img");
 
-    // Function to fetch air quality data from the server
-    async function fetchAirQualityData(latitude, longitude) {
-        try {
-            const response = await fetch('/get-air-quality', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ latitude, longitude })
-            });
-            const data = await response.json();
+  dollarIcon.src =
+    "https://developers.google.com/maps/documentation/javascript/examples/full/images/bank_icon.svg";
 
-            // Extract AQI value and health recommendations from response
-            const universalAqiValue = data.universalAqi.aqi;
-            const healthRecommendations = data.healthRecommendations;
+  const busIcon = document.createElement("img");
 
-            // Update gauge meter and health recommendations
-            updateGaugeMeter(universalAqiValue, healthRecommendations);
-        } catch (error) {
-            console.error('Error fetching air quality data:', error);
-        }
-    }
+  busIcon.src =
+    "https://developers.google.com/maps/documentation/javascript/examples/full/images/bus_icon.svg";
 
-    // Function to get user's current location and fetch air quality data
-    function getLocationAndFetchAirQuality() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
+  // Set up the markers on the map
+  const cafeMarker = new google.maps.Marker({
+    position: { lat: 40.730031, lng: -73.991428 },
+    map,
+    title: "Cafe",
+    icon: cafeIcon.src,
+  });
+  const bankMarker = new google.maps.Marker({
+    position: { lat: 40.729681, lng: -73.991138 },
+    map,
+    title: "Bank",
+    icon: dollarIcon.src,
+  });
+  const busMarker = new google.maps.Marker({
+    position: { lat: 40.729559, lng: -73.990741 },
+    map,
+    title: "Bus Stop",
+    icon: busIcon.src,
+  });
 
-                // Fetch air quality data using current latitude and longitude
-                fetchAirQualityData(latitude, longitude);
-            }, function(error) {
-                console.error('Error getting current location:', error);
-            });
-        } else {
-            console.error('Geolocation is not supported by this browser.');
-        }
-    }
+  // We get the map's default panorama and set up some defaults.
+  // Note that we don't yet set it visible.
+  panorama = map.getStreetView(); // TODO fix type
+  panorama.setPosition(astorPlace);
+  panorama.setPov(
+    /** @type {google.maps.StreetViewPov} */ {
+      heading: 265,
+      pitch: 0,
+    },
+  );
+}
 
-    // Get health recommendations element
-    var healthRecommendationsElement = document.getElementById('health-recommendations');
+function toggleStreetView() {
+  const toggle = panorama.getVisible();
 
-    // Call getLocationAndFetchAirQuality function to get current location and fetch air quality data
-    getLocationAndFetchAirQuality();
-});
+  if (toggle == false) {
+    panorama.setVisible(true);
+  } else {
+    panorama.setVisible(false);
+  }
+}
+
+window.initMap = initMap;

@@ -4,75 +4,233 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Location-based AR.js demo</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #map-container {
+            position: relative;
+            width: 100%;
+            height: 40%; /* Default height */
+            flex-shrink: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        #toggle {
+            padding: 6px;
+            align-self: center;
+            font-size: 30px;
+        }
+
+        #ar-scene-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #ar-scene {
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (max-width: 768px) {
+            /* Media query for mobile devices */
+            #map-container {
+                height: 30%; /* Adjusted height for mobile */
+            }
+
+            #toggle {
+                width: 90%; /* Adjust for smaller screens */
+            }
+        }
+    </style>
+
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-look-at-component@0.9.0/dist/aframe-look-at-component.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB9z2DGRKDtIgERJTj19oOCKL77tHBeOCk&callback=initMap" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
+        let map, marker, panorama;
+        let lastPosition = { latitude: 0, longitude: 0 };
+        let updating = false;
+
+        function initMap() {
+            const mapContainer = document.getElementById('map');
+            map = new google.maps.Map(mapContainer, {
+                center: { lat: 0, lng: 0 },
+                zoom: 15,
+            });
+
+            marker = new google.maps.Marker({
+                map: map,
+                animation: google.maps.Animation.DROP,
+            });
+
+            panorama = new google.maps.StreetViewPanorama(
+                mapContainer,
+                {
+                    position: { lat: 0, lng: 0 },
+                    pov: {
+                        heading: 34,
+                        pitch: 10,
+                    },
+                    visible: false,
+                }
+            );
+            map.setStreetView(panorama);
+
+            document.getElementById("toggle").addEventListener("click", toggleStreetView);
+
+            function toggleStreetView() {
+                const toggle = panorama.getVisible();
+                panorama.setVisible(!toggle);
+            }
+
+            window.addEventListener('resize', () => {
+                google.maps.event.trigger(map, 'resize');
+            });
+        }
+
+        function protoToCssColor(rgb_color) {
+            const red = Math.floor((rgb_color.red || 0) * 255);
+            const green = Math.floor((rgb_color.green || 0) * 255);
+            const blue = Math.floor((rgb_color.blue || 0) * 255);
+
+            if (!('alpha' in rgb_color)) {
+                return rgbToCssColor(red, green, blue);
+            }
+
+            const alphaFrac = rgb_color.alpha.value || 0.0;
+            return `rgba(${red}, ${green}, ${blue}, ${alphaFrac})`;
+        }
+
+        function rgbToCssColor(red, green, blue) {
+            const rgbNumber = (red << 16) | (green << 8) | blue;
+            const hexString = rgbNumber.toString(16).padStart(6, '0');
+            return `#${hexString}`;
+        }
+
         async function fetchAQIData(latitude, longitude) {
-    try {
-        const response = await fetch('/get-air-quality', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ latitude, longitude }),
-        });
-        
-        const data = await response.json();
-        console.log('Received AQI data:', data);
-        
-        // Extract the AQI value and health recommendations
-        const aqiValue =  data.universalAqi.aqi ;
-        console.log(aqiValue);
-     
-        const summary = data.summary;
+            try {
+                const response = await fetch('/get-air-quality', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ latitude, longitude }),
+                });
 
-        console.log('AQI Value:', aqiValue);
-        console.log('Health Recommendations:', summary.candidates[0].content.parts[0].text);
-      
-        
-        updateAQI(aqiValue);
-        updateHealthRecommendations(summary.candidates[0].content.parts[0].text);
-    } catch (error) {
-        console.error('Error fetching AQI data:', error);
-        updateAQI(null);
-        updateHealthRecommendations(null);
-    }
-}
+                const data = await response.json();
+                console.log('Received AQI data:', data);
 
+                const aqiValue = data.localAqi.aqi;
+                const category = data.localAqi.category;
+                const color = protoToCssColor(data.localAqi.color);
+                const healthRecommendations = data.summary.candidates[0].content.parts[0].text;
 
-function updateAQI(aqiValue) {
-    // Set the AQI value in the AR scene
-    const aqiTextEntity = document.getElementById('aqi-text');
-    if (aqiTextEntity) {
-        aqiTextEntity.setAttribute('text', `value: AQI: ${aqiValue}`);
-        
-    }
-}
+                setTimeout(() => {
+                    updateAQI(aqiValue, category, color);
+                    updateHealthRecommendations(healthRecommendations);
+                    updating = false;
+                }, 500);
 
-function updateHealthRecommendations(healthRecommendationsText) {
-    // Set the health recommendations text in the AR scene
-    const healthTextEntity = document.getElementById('health-text');
-    if (healthTextEntity) {
-        healthTextEntity.setAttribute('text', `value: Health Recommendations: ${healthRecommendationsText}; color: black; align: left; width: 3.0; wrapCount: 50;`);
-       
-    }
-}
+                updateMap(latitude, longitude, aqiValue, color);
+            } catch (error) {
+                console.error('Error fetching AQI data:', error);
+                updateAQI(null, null, null);
+                updateHealthRecommendations(null);
+                updating = false;
+            }
+        }
 
+        function updateAQI(aqiValue, category, color) {
+            const aqiTextEntity = document.getElementById('aqi-text');
+            const categoryTextEntity = document.getElementById('category-text');
+            const lightEntity = document.getElementById('light');
 
- 
+            if (aqiTextEntity && categoryTextEntity && lightEntity) {
+                aqiTextEntity.setAttribute('text', `value: AQI: ${aqiValue}; color: black; align: center; width: 5; wrapCount: 50;`);
+                aqiTextEntity.setAttribute('scale', '0.5 0.5 0.5');
+
+                categoryTextEntity.setAttribute('text', `value: ${category}; color: black; align: center; width: 2; wrapCount: 20;`);
+                categoryTextEntity.setAttribute('scale', '0.5 0.5 0.5');
+
+                lightEntity.setAttribute('material', `color: ${color}; opacity: 1`);
+            }
+        }
+
+        function updateHealthRecommendations(healthRecommendationsText) {
+            const healthTextEntity = document.getElementById('health-text');
+            const healthBoxEntity = document.getElementById('health-box');
+            if (healthTextEntity && healthBoxEntity) {
+                healthTextEntity.setAttribute('text', `value: Health Recommendations: ${healthRecommendationsText}; color: black; align: center; width: 3.5; wrapCount: 50;`);
+
+                const lines = Math.ceil(healthRecommendationsText.length / 50);
+                healthBoxEntity.setAttribute('geometry', `height: ${0.3 + lines * 0.1};`);
+            }
+        }
+
+        function updateMap(latitude, longitude, aqiValue, color) {
+            const position = { lat: latitude, lng: longitude };
+            map.setCenter(position);
+
+            const aqiIcon = createAQIIcon(aqiValue, color);
+            const cafeMarker = new google.maps.Marker({
+                position: position,
+                map: map,
+                title: "AQI Marker",
+                icon: aqiIcon,
+            });
+
+            panorama.setPosition(position);
+        }
+
+        function createAQIIcon(aqiValue, color) {
+            const svgIcon = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:${color};stop-opacity:0.8" />
+                        </linearGradient>
+                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="black" flood-opacity="0.5" />
+                        </filter>
+                    </defs>
+                    <circle cx="32" cy="32" r="30" fill="url(#grad1)" stroke="black" stroke-width="2" filter="url(#shadow)" />
+                    <text x="32" y="38" font-size="24" fill="white" text-anchor="middle" font-family="Arial" font-weight="bold">${aqiValue}</text>
+                </svg>
+            `;
+            return `data:image/svg+xml;base64,${btoa(svgIcon)}`;
+        }
 
         function setCoordinates(latitude, longitude) {
-            const gpsEntity = document.getElementById('gps-entity');
-            gpsEntity.setAttribute('gps-entity-place', `latitude: ${latitude}; longitude: ${longitude};`);
-            gpsEntity.setAttribute('visible', 'true');
-            fetchAQIData(latitude, longitude);
+            if (!updating) {
+                const gpsEntity = document.getElementById('gps-entity');
+                gpsEntity.setAttribute('gps-entity-place', `latitude: ${latitude}; longitude: ${longitude};`);
+                gpsEntity.setAttribute('visible', 'true');
+                fetchAQIData(latitude, longitude);
+                updating = true;
+            }
         }
 
         if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition((position) => {
+            navigator.geolocation.watchPosition((position) => {
                 const { latitude, longitude } = position.coords;
-                setCoordinates(latitude, longitude);
+                if (Math.abs(latitude - lastPosition.latitude) > 0.0005 || Math.abs(longitude - lastPosition.longitude) > 0.0005) {
+                    lastPosition = { latitude, longitude };
+                    setCoordinates(latitude, longitude);
+                }
             }, (err) => {
                 console.error('Error obtaining location', err);
                 setCoordinates(0, 0);
@@ -81,65 +239,82 @@ function updateHealthRecommendations(healthRecommendationsText) {
                 timeout: 5000,
                 maximumAge: 0
             });
+
+            window.addEventListener('deviceorientation', (event) => {
+                if (event.alpha === null) {
+                    console.warn('Device orientation not supported or permission denied');
+                }
+            });
         } else {
-            console.error('Geolocation is not available');
-            setCoordinates(0, 0);
+            console.error('Geolocation is not supported');
         }
     </script>
 </head>
-<body style="margin: 0; overflow: hidden;">
-<a-scene
-    vr-mode-ui="enabled: false"
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: true; trackingMethod: best; sourceWidth: 1280; sourceHeight: 720;"
->
-    <a-entity id="gps-entity" gps-entity-place="latitude: 0; longitude: 0;" visible="false">
-        <!-- AQI Box -->
-        <a-box
-            color="#050C9C"
-            opacity="0.2"
-            depth="0.05"
-            height="0.5"
-            width="1.5"
-            position="-1.5 0 -3"
-            rotation="0 0 0"
+<body>
+    <div id="ar-scene-container">
+        <a-scene
+            id="ar-scene"
+            vr-mode-ui="enabled: false"
+            embedded
+            arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best; sourceWidth: 1280; sourceHeight: 720;"
         >
-            <a-entity
-                position="0.4 0.1 0"
-                text="value: Air Quality Index; color: #FFA62F; align: left; width: 1.5; wrapCount: 20;"
-            ></a-entity>
+            <a-entity id="gps-entity" gps-entity-place="latitude: 0; longitude: 0;" visible="false">
+                <!-- AQI Box -->
+                <a-box
+                    id="aqi-box"
+                    color="white"
+                    opacity="0.9"
+                    depth="0.05"
+                    height="1"
+                    width="1"
+                    position="-1.5 0 -3"
+                    rotation="0 0 0"
+                    look-at="[gps-camera]"
+                >
+                    <a-entity
+                        id="category-text"
+                        position="0 0.3 0.05"
+                        text="value: Category; color: black; align: center; width: 2; wrapCount: 20;"
+                    ></a-entity>
+                    <a-circle
+                        id="light"
+                        radius="0.10"
+                        radius-tubular="0.03"
+                        position="0 0 0.05"
+                        material="color: red; opacity: 1"
+                    ></a-circle>
+                    <a-entity
+                        id="aqi-text"
+                        position="0 -0.3 0.05"
+                        text="value: AQI: 0; color: black; align: center; width: 2; wrapCount: 20;"
+                    ></a-entity>
+                </a-box>
+                <!-- Health Recommendation Box -->
+                <a-box
+                    id="health-box"
+                    color="white"
+                    opacity="0.9"
+                    depth="0.05"
+                    height="1"
+                    width="3.5"
+                    position="1.5 0 -4"
+                    rotation="0 0 0"
+                    look-at="[gps-camera]"
+                >
+                    <a-entity
+                        id="health-text"
+                        position="0 0 0.05"
+                        text="value: Health Recommendations; color: black; align: center; width: 3.5; wrapCount: 50;"
+                    ></a-entity>
+                </a-box>
+            </a-entity>
+            <a-camera gps-camera rotation-reader cursor="fuse: false; rayOrigin: mouse;" position="0 0 0"></a-camera>
+        </a-scene>
+    </div>
 
-            <a-entity
-                position="0.4 -0.1 0"
-                id="aqi-text"
-                text="value: AQI: 0; color: black; align: left; width: 1.5; wrapCount: 20;"
-            ></a-entity>
-        </a-box>
-
-        <!-- Health Recommendation Box -->
-        <a-box
-            color="#32CD32"
-            opacity="0.2"
-            depth="0.05"
-            height="1.5"
-            width="4.0"
-            position="1.5 0 -3"
-            rotation="0 0 0"
-        >
-            <a-entity
-                position="1 0.1 0"
-                text="value: Health Recommendations; color: white; align: left; width: 3.0; wrapCount: 20;"
-            ></a-entity>
-
-            <a-entity
-                position="0.4 -0.1 0"
-                id="health-text"
-                text="value: None; color: black; align: left; width: 3.0; wrapCount: 50;"
-            ></a-entity>
-        </a-box>
-    </a-entity>
-
-    <a-camera gps-camera rotation-reader></a-camera>
-</a-scene>
+    <div id="map-container">
+        <input type="button" value="Toggle Street View" id="toggle" />
+        <div id="map"></div>
+    </div>
 </body>
 </html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-Frame AR with SVG Gauge</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-environment-component/dist/aframe-environment-component.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gaugeJS/dist/gauge.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #efefef;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Hidden SVG container -->
+<div id="gauge-svg-container" class="hidden"></div>
+
+<a-scene
+    vr-mode-ui="enabled: false"
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best; sourceWidth: 1280; sourceHeight: 720;"
+>
+    <a-assets>
+        <img id="gauge-image" src="" />
+    </a-assets>
+
+    <a-entity gps-entity-place="latitude: 0; longitude: 0;" visible="false">
+        <a-box
+            id="aqi-box"
+            color="white"
+            opacity="0.9"
+            depth="0.05"
+            height="1"
+            width="1"
+            position="-1.5 0 -3"
+            rotation="0 0 0"
+            look-at="[gps-camera]"
+        >
+            <a-image src="#gauge-image" width="1" height="1" position="0 0 0.05"></a-image>
+        </a-box>
+    </a-entity>
+
+    <a-camera gps-camera rotation-reader></a-camera>
+</a-scene>
+
+<script>
+    // Gauge setup
+    var opts = {
+        angle: -0.25,
+        lineWidth: 0.2,
+        radiusScale: 0.9,
+        pointer: {
+            length: 0.6,
+            strokeWidth: 0.05,
+            color: '#000000'
+        },
+        staticLabels: {
+            font: "15px sans-serif",
+            labels: [0, 50, 100, 200, 300, 400, 500],
+            color: "#000000",
+            fractionDigits: 0
+        },
+        staticZones: [
+            { strokeStyle: "#00B050", min: 0, max: 50 },
+            { strokeStyle: "#92D050", min: 51, max: 100 },
+            { strokeStyle: "#FFFF00", min: 101, max: 200 },
+            { strokeStyle: "#FF6500", min: 201, max: 300 },
+            { strokeStyle: "#FF0000", min: 301, max: 400 },
+            { strokeStyle: "#C00000", min: 401, max: 500 }
+        ],
+        limitMax: false,
+        limitMin: false,
+        highDpiSupport: true
+    };
+
+    // Create gauge
+    var target = document.createElement('canvas');
+    target.width = 200;
+    target.height = 200;
+    var gauge = new Gauge(target).setOptions(opts);
+    gauge.maxValue = 500;
+    gauge.setMinValue(0);
+    gauge.set(125);
+
+    // Convert canvas to SVG
+    function canvasToSVG(canvas) {
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        svg.setAttribute("width", canvas.width);
+        svg.setAttribute("height", canvas.height);
+        var img = new Image();
+        img.src = canvas.toDataURL("image/png");
+        img.onload = function() {
+            var imgElement = document.createElementNS("http://www.w3.org/2000/svg", "image");
+            imgElement.setAttributeNS(null, "href", img.src);
+            imgElement.setAttribute("x", 0);
+            imgElement.setAttribute("y", 0);
+            imgElement.setAttribute("width", canvas.width);
+            imgElement.setAttribute("height", canvas.height);
+            svg.appendChild(imgElement);
+            document.getElementById('gauge-svg-container').appendChild(svg);
+            updateGaugeImage();
+        };
+    }
+
+    // Convert SVG to Data URL
+    function svgToDataURL(svg) {
+        var svgString = new XMLSerializer().serializeToString(svg);
+        return 'data:image/svg+xml;base64,' + btoa(svgString);
+    }
+
+    // Update gauge image in AR scene
+    function updateGaugeImage() {
+        var svgElement = document.querySelector('#gauge-svg-container svg');
+        var dataURL = svgToDataURL(svgElement);
+        document.querySelector('#gauge-image').setAttribute('src', dataURL);
+    }
+
+    // Generate SVG and update image
+    canvasToSVG(target);
+</script>
+
+</body>
+</html>
